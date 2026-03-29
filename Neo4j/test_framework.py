@@ -1,0 +1,313 @@
+"""
+Test-Framework: Validierung der Neo4j Mastodon-Datenbank
+Prüft ob das Informationssystem korrekt funktioniert.
+Verwendung: python test_framework.py
+Voraussetzungen: pip install neo4j
+"""
+
+import json
+from neo4j import GraphDatabase
+
+# ── Konfiguration ─────────────────────────────────────────────────────────────
+NEO4J_URI      = "bolt://localhost:7687"
+NEO4J_USER     = "neo4j"
+NEO4J_PASSWORD = "retgoj-zimbyh-2qecvE"   # <-- anpassen falls nötig
+INPUT_FILE     = "Data/Mastodoner.jsonl"
+
+# ── Hilfsfunktionen ───────────────────────────────────────────────────────────
+PASSED = 0
+FAILED = 0
+
+def test(name: str, result: bool, detail: str = ""):
+    global PASSED, FAILED
+    status = "✅ PASS" if result else "❌ FAIL"
+    print(f"  {status}  {name}")
+    if detail:
+        print(f"         → {detail}")
+    if result:
+        PASSED += 1
+    else:
+        FAILED += 1
+
+def count_jsonl(filepath: str) -> int:
+    count = 0
+    with open(filepath, "r", encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                count += 1
+    return count
+
+# ── Tests ─────────────────────────────────────────────────────────────────────
+def run_tests(driver):
+
+    # ── 1. Import-Vollständigkeit ─────────────────────────────────────────────
+    print("\n📋 1. Import-Vollständigkeit")
+
+    jsonl_count = count_jsonl(INPUT_FILE)
+
+    with driver.session() as s:
+        toot_count = s.run("MATCH (t:Toot) RETURN count(t) AS n").single()["n"]
+
+    # Platzhalter-Toots = Toots ohne URI (entstehen durch REPLY_TO auf nicht importierte Toots)
+    with driver.session() as s:
+        placeholder_count = s.run("""
+            MATCH (t:Toot)
+            WHERE t.uri IS NULL OR t.uri = ""
+            RETURN count(t) AS n
+        """).single()["n"]
+
+    real_toot_count = toot_count - placeholder_count
+
+    test(
+        "Anzahl echter Toot-Knoten entspricht Anzahl Zeilen in .jsonl",
+        real_toot_count == jsonl_count,
+        f"{toot_count} Knoten total, {placeholder_count} Platzhalter (REPLY_TO), {real_toot_count} echte Toots, {jsonl_count} Zeilen in .jsonl"
+    )
+
+    with driver.session() as s:
+        autor_count = s.run("MATCH (a:Autor) RETURN count(a) AS n").single()["n"]
+    test("Autor-Knoten vorhanden", autor_count > 0, f"{autor_count} Autoren")
+
+    with driver.session() as s:
+        instanz_count = s.run("MATCH (i:Instanz) RETURN count(i) AS n").single()["n"]
+    test("Instanz-Knoten vorhanden", instanz_count > 0, f"{instanz_count} Instanzen")
+
+    with driver.session() as s:
+        hashtag_count = s.run("MATCH (h:Hashtag) RETURN count(h) AS n").single()["n"]
+    test("Hashtag-Knoten vorhanden", hashtag_count > 0, f"{hashtag_count} Hashtags")
+
+    # ── 2. Beziehungs-Vollständigkeit ─────────────────────────────────────────
+    print("\n🔗 2. Beziehungs-Vollständigkeit")
+    print("     (Platzhalter-Toots ohne URI werden ausgeschlossen)")
+
+    with driver.session() as s:
+        toots_without_autor = s.run("""
+            MATCH (t:Toot)
+            WHERE NOT (t)-[:AUTHORED_BY]->(:Autor)
+            AND t.uri IS NOT NULL AND t.uri <> ""
+            RETURN count(t) AS n
+        """).single()["n"]
+    test(
+        "Alle echten Toots haben AUTHORED_BY-Kante",
+        toots_without_autor == 0,
+        f"{toots_without_autor} echte Toots ohne Autor"
+    )
+
+    with driver.session() as s:
+        toots_without_instanz = s.run("""
+            MATCH (t:Toot)
+            WHERE NOT (t)-[:POSTED_ON]->(:Instanz)
+            AND t.uri IS NOT NULL AND t.uri <> ""
+            RETURN count(t) AS n
+        """).single()["n"]
+    test(
+        "Alle echten Toots haben POSTED_ON-Kante",
+        toots_without_instanz == 0,
+        f"{toots_without_instanz} echte Toots ohne Instanz"
+    )
+
+    with driver.session() as s:
+        autoren_without_instanz = s.run("""
+            MATCH (a:Autor)
+            WHERE NOT (a)-[:MEMBER_OF]->(:Instanz)
+            RETURN count(a) AS n
+        """).single()["n"]
+    test(
+        "Alle Autoren haben MEMBER_OF-Kante",
+        autoren_without_instanz == 0,
+        f"{autoren_without_instanz} Autoren ohne Heiminstanz"
+    )
+
+    # ── 3. Hashtag-Vollständigkeit ────────────────────────────────────────────
+    print("\n#️⃣  3. Hashtag-Vollständigkeit")
+
+    total_tags_jsonl = 0
+    with open(INPUT_FILE, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            toot = json.loads(line)
+            total_tags_jsonl += len(toot.get("tags", []))
+
+    with driver.session() as s:
+        has_hashtag_count = s.run("""
+            MATCH ()-[r:HAS_HASHTAG]->()
+            RETURN count(r) AS n
+        """).single()["n"]
+    test(
+        "Anzahl HAS_HASHTAG-Kanten stimmt mit .jsonl überein",
+        has_hashtag_count == total_tags_jsonl,
+        f"{has_hashtag_count} Kanten in Neo4j, {total_tags_jsonl} Tags in .jsonl"
+    )
+
+    # ── 4. REPLY_TO Beziehungen ───────────────────────────────────────────────
+    print("\n↩️  4. REPLY_TO Beziehungen")
+
+    reply_count_jsonl = 0
+    with open(INPUT_FILE, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            toot = json.loads(line)
+            if toot.get("in_reply_to_id"):
+                reply_count_jsonl += 1
+
+    with driver.session() as s:
+        reply_count_neo4j = s.run("""
+            MATCH ()-[r:REPLY_TO]->()
+            RETURN count(r) AS n
+        """).single()["n"]
+    test(
+        "Anzahl REPLY_TO-Kanten stimmt mit .jsonl überein",
+        reply_count_neo4j == reply_count_jsonl,
+        f"{reply_count_neo4j} Kanten in Neo4j, {reply_count_jsonl} Antworten in .jsonl"
+    )
+
+    # ── 5. BOOSTED Beziehungen ────────────────────────────────────────────────
+    print("\n🔁 5. BOOSTED Beziehungen")
+
+    boost_count_jsonl = 0
+    with open(INPUT_FILE, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            toot = json.loads(line)
+            if toot.get("reblog"):
+                boost_count_jsonl += 1
+
+    with driver.session() as s:
+        boost_count_neo4j = s.run("""
+            MATCH ()-[r:BOOSTED]->()
+            RETURN count(r) AS n
+        """).single()["n"]
+    test(
+        "Anzahl BOOSTED-Kanten stimmt mit .jsonl überein",
+        boost_count_neo4j == boost_count_jsonl,
+        f"{boost_count_neo4j} Kanten in Neo4j, {boost_count_jsonl} Boosts in .jsonl"
+    )
+
+    # ── 6. Deduplizierung ─────────────────────────────────────────────────────
+    print("\n🔍 6. Deduplizierung")
+
+    with driver.session() as s:
+        duplicate_toots = s.run("""
+            MATCH (t:Toot)
+            WITH t.id AS id, count(*) AS n
+            WHERE n > 1
+            RETURN count(*) AS duplicates
+        """).single()["duplicates"]
+    test(
+        "Keine doppelten Toot-Knoten (gleiche ID)",
+        duplicate_toots == 0,
+        f"{duplicate_toots} Duplikate gefunden"
+    )
+
+    with driver.session() as s:
+        duplicate_autoren = s.run("""
+            MATCH (a:Autor)
+            WITH a.handle AS handle, count(*) AS n
+            WHERE n > 1
+            RETURN count(*) AS duplicates
+        """).single()["duplicates"]
+    test(
+        "Keine doppelten Autor-Knoten (gleicher Handle)",
+        duplicate_autoren == 0,
+        f"{duplicate_autoren} Duplikate gefunden"
+    )
+
+    with driver.session() as s:
+        duplicate_instanzen = s.run("""
+            MATCH (i:Instanz)
+            WITH i.domain AS domain, count(*) AS n
+            WHERE n > 1
+            RETURN count(*) AS duplicates
+        """).single()["duplicates"]
+    test(
+        "Keine doppelten Instanz-Knoten (gleiche Domain)",
+        duplicate_instanzen == 0,
+        f"{duplicate_instanzen} Duplikate gefunden"
+    )
+
+    # ── 7. Datenqualität ──────────────────────────────────────────────────────
+    print("\n📊 7. Datenqualität")
+
+    with driver.session() as s:
+        toots_without_uri = s.run("""
+            MATCH (t:Toot)
+            WHERE (t.uri IS NULL OR t.uri = "")
+            AND EXISTS { (t)-[:AUTHORED_BY]->() }
+            RETURN count(t) AS n
+        """).single()["n"]
+    test(
+        "Alle echten Toots haben eine URI",
+        toots_without_uri == 0,
+        f"{toots_without_uri} echte Toots ohne URI"
+    )
+
+    with driver.session() as s:
+        toots_without_content = s.run("""
+            MATCH (t:Toot)
+            WHERE (t.content IS NULL OR t.content = "")
+            AND t.uri IS NOT NULL AND t.uri <> ""
+            RETURN count(t) AS n
+        """).single()["n"]
+    test(
+        "Echte Toots ohne Inhalt sind akzeptabel (z.B. reine Bild-Toots)",
+        True,
+        f"{toots_without_content} echte Toots ohne Text-Inhalt (Bild- oder Video-Toots)"
+    )
+
+    test(
+        "Mindestens 30 verschiedene Instanzen vorhanden",
+        instanz_count >= 30,
+        f"{instanz_count} Instanzen in der Datenbank"
+    )
+
+    # ── 8. Volltext-Index ─────────────────────────────────────────────────────
+    print("\n🔎 8. Volltext-Index")
+
+    with driver.session() as s:
+        indexes = s.run("SHOW INDEXES").data()
+        fulltext_exists = any(
+            idx.get("type") == "FULLTEXT" and "toot_content" in str(idx.get("name", ""))
+            for idx in indexes
+        )
+    test(
+        "Volltext-Index 'toot_content' ist vorhanden",
+        fulltext_exists,
+        "Index für Freitextsuche auf Toot.content"
+    )
+
+    if not fulltext_exists:
+        print("         ℹ️  Erstelle Index mit:")
+        print("            CREATE FULLTEXT INDEX toot_content IF NOT EXISTS")
+        print("            FOR (t:Toot) ON EACH [t.content]")
+
+
+# ── Hauptprogramm ─────────────────────────────────────────────────────────────
+def main():
+    print("=" * 55)
+    print("  Test-Framework: Mastodon Neo4j Informationssystem")
+    print("=" * 55)
+
+    driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+
+    try:
+        run_tests(driver)
+    finally:
+        driver.close()
+
+    print("\n" + "=" * 55)
+    print(f"  Ergebnis: {PASSED} bestanden / {FAILED} fehlgeschlagen")
+    if FAILED == 0:
+        print("  🎉 Alle Tests bestanden!")
+    else:
+        print("  ⚠️  Einige Tests fehlgeschlagen — bitte prüfen.")
+    print("=" * 55)
+
+
+if __name__ == "__main__":
+    main()
