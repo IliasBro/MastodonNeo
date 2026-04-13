@@ -1,0 +1,17 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment
+.env
+
+# Daten (zu gross für GitHub)
+Data/
+
+# macOS
+.DS_Store
+
+# VS Code
+.vscode/

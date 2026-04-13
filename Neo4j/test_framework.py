@@ -20,7 +20,7 @@ FAILED = 0
 
 def test(name: str, result: bool, detail: str = ""):
     global PASSED, FAILED
-    status = "✅ PASS" if result else "❌ FAIL"
+    status = "PASS" if result else "FAIL"
     print(f"  {status}  {name}")
     if detail:
         print(f"         → {detail}")
@@ -303,9 +303,9 @@ def main():
     print("\n" + "=" * 55)
     print(f"  Ergebnis: {PASSED} bestanden / {FAILED} fehlgeschlagen")
     if FAILED == 0:
-        print("  🎉 Alle Tests bestanden!")
+        print("Alle Tests bestanden!")
     else:
-        print("  ⚠️  Einige Tests fehlgeschlagen — bitte prüfen.")
+        print("Einige Tests fehlgeschlagen — bitte prüfen.")
     print("=" * 55)
 
 
