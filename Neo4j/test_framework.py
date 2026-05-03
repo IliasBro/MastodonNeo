@@ -41,7 +41,7 @@ def count_jsonl(filepath: str) -> int:
 def run_tests(driver):
 
     # ── 1. Import-Vollständigkeit ─────────────────────────────────────────────
-    print("\n📋 1. Import-Vollständigkeit")
+    print("\n 1. Import-Vollständigkeit")
 
     jsonl_count = count_jsonl(INPUT_FILE)
 
@@ -77,7 +77,7 @@ def run_tests(driver):
     test("Hashtag-Knoten vorhanden", hashtag_count > 0, f"{hashtag_count} Hashtags")
 
     # ── 2. Beziehungs-Vollständigkeit ─────────────────────────────────────────
-    print("\n🔗 2. Beziehungs-Vollständigkeit")
+    print("\n 2. Beziehungs-Vollständigkeit")
     print("     (Platzhalter-Toots ohne URI werden ausgeschlossen)")
 
     with driver.session() as s:
@@ -119,7 +119,7 @@ def run_tests(driver):
     )
 
     # ── 3. Hashtag-Vollständigkeit ────────────────────────────────────────────
-    print("\n#️⃣  3. Hashtag-Vollständigkeit")
+    print("\n#️  3. Hashtag-Vollständigkeit")
 
     total_tags_jsonl = 0
     with open(INPUT_FILE, "r", encoding="utf-8") as f:
@@ -142,7 +142,7 @@ def run_tests(driver):
     )
 
     # ── 4. REPLY_TO Beziehungen ───────────────────────────────────────────────
-    print("\n↩️  4. REPLY_TO Beziehungen")
+    print("\n  4. REPLY_TO Beziehungen")
 
     reply_count_jsonl = 0
     with open(INPUT_FILE, "r", encoding="utf-8") as f:
@@ -166,7 +166,7 @@ def run_tests(driver):
     )
 
     # ── 5. BOOSTED Beziehungen ────────────────────────────────────────────────
-    print("\n🔁 5. BOOSTED Beziehungen")
+    print("\n 5. BOOSTED Beziehungen")
 
     boost_count_jsonl = 0
     with open(INPUT_FILE, "r", encoding="utf-8") as f:
@@ -190,7 +190,7 @@ def run_tests(driver):
     )
 
     # ── 6. Deduplizierung ─────────────────────────────────────────────────────
-    print("\n🔍 6. Deduplizierung")
+    print("\n 6. Deduplizierung")
 
     with driver.session() as s:
         duplicate_toots = s.run("""
@@ -232,7 +232,7 @@ def run_tests(driver):
     )
 
     # ── 7. Datenqualität ──────────────────────────────────────────────────────
-    print("\n📊 7. Datenqualität")
+    print("\n 7. Datenqualität")
 
     with driver.session() as s:
         toots_without_uri = s.run("""
@@ -267,7 +267,7 @@ def run_tests(driver):
     )
 
     # ── 8. Volltext-Index ─────────────────────────────────────────────────────
-    print("\n🔎 8. Volltext-Index")
+    print("\n 8. Volltext-Index")
 
     with driver.session() as s:
         indexes = s.run("SHOW INDEXES").data()
@@ -282,7 +282,7 @@ def run_tests(driver):
     )
 
     if not fulltext_exists:
-        print("         ℹ️  Erstelle Index mit:")
+        print("            Erstelle Index mit:")
         print("            CREATE FULLTEXT INDEX toot_content IF NOT EXISTS")
         print("            FOR (t:Toot) ON EACH [t.content]")
 

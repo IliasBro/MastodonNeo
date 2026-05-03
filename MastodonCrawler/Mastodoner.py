@@ -12,8 +12,8 @@ import time
 import os
 
 # ── Konfiguration ──────────────────────────────────────────────────────────────
-INSTANCES_FILE         = "Instances/Top40Instances.json"
-OUTPUT_FILE            = "Data/Mastodoner.jsonl"
+INSTANCES_FILE         = "Instances/InstancesValidated.json"
+OUTPUT_FILE            = "Data/ScrapedData_Mastodoner.jsonl"
 ERROR_LOG              = "Data/error_Mastodoner_Log.txt"
 MAX_POSTS_PER_INSTANCE = 200   # Anzahl Toots pro Instanz
 PAUSE_BETWEEN          = 2     # Sekunden Pause zwischen Instanzen (Rate Limit)

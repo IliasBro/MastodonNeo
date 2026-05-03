@@ -15,7 +15,7 @@ import os
 
 # ── Konfiguration ──────────────────────────────────────────────────────────────
 INSTANCES_FILE  = "Instances/Top40Instances.json"
-OUTPUT_FILE     = "Data/toots_scraped.jsonl"
+OUTPUT_FILE     = "Data/ScrapedData_PublicApi.jsonl"
 ERROR_LOG       = "Data/fehler_scraping.txt"
 MAX_TOOTS       = 200      # Maximale Toots pro Instanz
 PAUSE_BETWEEN   = 3        # Sekunden Pause zwischen Instanzen
