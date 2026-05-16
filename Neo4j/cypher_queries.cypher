@@ -61,7 +61,7 @@ LIMIT 15
 # ===========================================================================
 
 # 3.1 Aktivste Autoren gesamt
-MATCH (a:Autor)-[:AUTHORED_BY]-(t:Toot)
+MATCH (t:Toot)-[:AUTHORED_BY]->(a:Autor)
 RETURN a.handle AS autor, count(t) AS anzahl_toots
 ORDER BY anzahl_toots DESC
 LIMIT 10
@@ -180,7 +180,40 @@ RETURN h, r, rec
 LIMIT 50
 
 # ===========================================================================
-# 7. VOLLSTÄNDIGE USE-CASE PIPELINE
+# 7. SPREADING-ANALYSE — Verbreitung von Toots verfolgen
+# ===========================================================================
+
+# 7.1 Toots mit den meisten direkten Antworten
+MATCH (reply:Toot)-[:REPLY_TO]->(original:Toot)
+WHERE original.uri IS NOT NULL
+RETURN original.uri AS toot,
+       count(reply) AS anzahl_antworten
+ORDER BY anzahl_antworten DESC
+LIMIT 10
+
+# 7.2 Längste Antwortketten im Datensatz
+MATCH path = (start:Toot)-[:REPLY_TO*]->(end:Toot)
+WHERE NOT (start)<-[:REPLY_TO]-()
+  AND start.uri IS NOT NULL
+WITH start, max(length(path)) AS laenge
+RETURN laenge, start.uri AS start_toot
+ORDER BY laenge DESC
+LIMIT 5
+
+# 7.3 Instanzverteilung der Antwortbeziehungen
+MATCH (t1:Toot)-[:REPLY_TO]->(t2:Toot)
+WHERE t1.uri IS NOT NULL AND t2.uri IS NOT NULL
+MATCH (t1)-[:POSTED_ON]->(i1:Instanz)
+MATCH (t2)-[:POSTED_ON]->(i2:Instanz)
+RETURN i1.domain AS antwort_instanz,
+       i2.domain AS ursprungs_instanz,
+       count(*) AS anzahl,
+       CASE WHEN i1 <> i2 THEN 'cross-instance' ELSE 'same-instance' END AS typ
+ORDER BY anzahl DESC
+LIMIT 10
+
+# ===========================================================================
+# 8. VOLLSTÄNDIGE USE-CASE PIPELINE
 # «Ich möchte mehr über AI erfahren»
 # ===========================================================================
 
