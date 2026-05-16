@@ -1,7 +1,7 @@
 # MastodonNeo
 
 Bachelorarbeit — ZHAW School of Management and Law
-BSc Wirtschaftsinformatik, Vertiefung Data Science, 2026
+BSc Wirtschaftsinformatik, Vertiefung Data Science, 2026 
 
 Automatisierte Erfassung und Analyse wissenschaftlicher Mastodon-Kommunikation mit Neo4j.
 
