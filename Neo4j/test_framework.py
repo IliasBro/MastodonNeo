@@ -12,7 +12,7 @@ from neo4j import GraphDatabase
 NEO4J_URI      = "bolt://localhost:7687"
 NEO4J_USER     = "neo4j"
 NEO4J_PASSWORD = "retgoj-zimbyh-2qecvE"   # <-- anpassen falls nötig
-INPUT_FILE     = "Data/Mastodoner.jsonl"
+INPUT_FILE     = "Data/ScrapedData_Mastodoner.jsonl"
 
 # ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 PASSED = 0

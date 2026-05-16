@@ -18,7 +18,7 @@ load_dotenv()
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 NEO4J_URI      = os.getenv("NEO4J_URI")
 NEO4J_USER     = os.getenv("NEO4J_USER")
-INPUT_FILE     = "Data/Mastodoner.jsonl"
+INPUT_FILE     = "Data/ScrapedData_Mastodoner.jsonl"
 
 # ── Hilfsfunktion: Domain aus URI extrahieren ─────────────────────────────────
 def extract_domain(uri: str) -> str:
