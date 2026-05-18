@@ -8,12 +8,14 @@ Inspiriert vom Validierungsansatz von Wiegmann et al. (2024), jedoch
 als eigenständiges Script direkt im MastodonNeo-Repository integriert,
 ohne externes Repository oder manuelle Bug-Fixes.
 
-Geprüft wird (analog zum Wiegmann-Crawler):
+Geprüft wird:
   1. Nodeinfo-Schnittstelle  → /.well-known/nodeinfo
   2. Instanz-Aktivitätsdaten → /api/v1/instance/activity
+  3. Öffentliche Timeline    → /api/v1/timelines/public
 
-Nur Instanzen die beide Endpunkte erfolgreich beantworten werden
-als valide eingestuft — identisches Kriterium wie beim Wiegmann-Crawler.
+Nur Instanzen die alle drei Endpunkte erfolgreich beantworten werden
+als valide eingestuft. Kriterium 3 stellt sicher, dass die Instanz
+beim Crawlen mit Mastodoner keine 422-Fehler liefert.
 
 Verwendung:
   python Instances/validate_instances.py
@@ -81,14 +83,35 @@ def check_activity(instance: str) -> bool:
         return False
 
 
+def check_public_timeline(instance: str) -> bool:
+    """
+    Prüft ob die öffentliche Timeline verfügbar ist.
+    Entspricht dem Endpunkt den Mastodoner beim Crawlen verwendet.
+    Instanzen die diesen Endpunkt deaktiviert haben liefern HTTP 422.
+    """
+    try:
+        r = requests.get(
+            f"https://{instance}/api/v1/timelines/public",
+            headers=HEADERS, timeout=TIMEOUT
+        )
+        if r.status_code != 200:
+            return False
+        data = r.json()
+        return isinstance(data, list)
+    except Exception:
+        return False
+
+
 def validate_instance(instance: str) -> tuple[bool, str]:
     """
-    Validiert eine Instanz anhand beider Kriterien.
+    Validiert eine Instanz anhand aller drei Kriterien.
     """
     if not check_nodeinfo(instance):
         return False, "Keine Nodeinfo"
     if not check_activity(instance):
         return False, "Keine Aktivitätsdaten"
+    if not check_public_timeline(instance):
+        return False, "Öffentliche Timeline deaktiviert (HTTP 422)"
     return True, "OK"
 
 
@@ -96,7 +119,7 @@ def validate_instance(instance: str) -> tuple[bool, str]:
 def main():
     print("=" * 60)
     print("  Instanz-Validator — MastodonNeo")
-    print("  Kriterien: Nodeinfo + Aktivitätsdaten")
+    print("  Kriterien: Nodeinfo + Aktivitätsdaten + Öffentliche Timeline")
     print("=" * 60)
 
     if not os.path.exists(CANDIDATES_FILE):
