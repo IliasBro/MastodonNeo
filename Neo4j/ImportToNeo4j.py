@@ -19,6 +19,7 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 NEO4J_URI      = os.getenv("NEO4J_URI")
 NEO4J_USER     = os.getenv("NEO4J_USER")
 INPUT_FILE     = "Data/ScrapedData_Mastodoner.jsonl"
+BOOST_FILE     = "Data/BoostData.jsonl"
 
 # ── Hilfsfunktion: Domain aus URI extrahieren ─────────────────────────────────
 def extract_domain(uri: str) -> str:
@@ -133,6 +134,21 @@ def import_toot(tx, toot: dict):
         """, toot_id=toot_id, boosted_id=boosted_toot_id)
 
 
+# ── BOOSTED_BY Import-Funktion ────────────────────────────────────────────────
+def import_boosted_by(tx, toot_uri: str, handle: str, display_name: str):
+    """
+    Erstellt eine BOOSTED_BY-Kante zwischen Toot und Autor.
+    LIMIT 1 verhindert Duplikate bei mehrfach vorhandenen Toot-Knoten
+    mit derselben URI (durch Föderierung gecrawlt von verschiedenen Instanzen).
+    """
+    tx.run("""
+        MATCH (t:Toot {uri: $toot_uri}) WITH t LIMIT 1
+        MERGE (a:Autor {handle: $handle})
+            ON CREATE SET a.display_name = $display_name
+        MERGE (t)-[:BOOSTED_BY]->(a)
+    """, toot_uri=toot_uri, handle=handle, display_name=display_name)
+
+
 # ── Hauptprogramm ─────────────────────────────────────────────────────────────
 def main():
     driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
@@ -159,6 +175,32 @@ def main():
                 print(f"{count} Toots importiert...")
 
     print(f"\nFertig! {count} Toots erfolgreich importiert.")
+
+    # ── Schritt 2: BOOSTED_BY-Kanten aus BoostData.jsonl importieren ──────────
+    if os.path.exists(BOOST_FILE):
+        boost_count = 0
+        print(f"\nImportiere BOOSTED_BY-Kanten aus {BOOST_FILE}...")
+        with open(BOOST_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                entry    = json.loads(line)
+                toot_uri = entry["toot_uri"]
+                for booster in entry.get("boosters", []):
+                    handle       = booster.get("handle", "")
+                    display_name = booster.get("display_name", "")
+                    if not handle:
+                        continue
+                    with driver.session() as session:
+                        session.execute_write(
+                            import_boosted_by, toot_uri, handle, display_name
+                        )
+                    boost_count += 1
+        print(f"{boost_count} BOOSTED_BY-Kanten importiert.")
+    else:
+        print(f"\nKeine {BOOST_FILE} gefunden — BOOSTED_BY-Kanten werden übersprungen.")
+
     driver.close()
 
 

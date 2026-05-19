@@ -1,6 +1,7 @@
 """
 Test-Framework: Validierung der Neo4j Mastodon-Datenbank
 Prüft ob das Informationssystem korrekt funktioniert.
+19 Tests in 9 Kategorien.
 Verwendung: python test_framework.py
 Voraussetzungen: pip install neo4j
 """
@@ -13,6 +14,7 @@ NEO4J_URI      = "bolt://localhost:7687"
 NEO4J_USER     = "neo4j"
 NEO4J_PASSWORD = "retgoj-zimbyh-2qecvE"   # <-- anpassen falls nötig
 INPUT_FILE     = "Data/ScrapedData_Mastodoner.jsonl"
+BOOST_FILE     = "Data/BoostData.jsonl"
 
 # ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 PASSED = 0
@@ -110,6 +112,7 @@ def run_tests(driver):
         autoren_without_instanz = s.run("""
             MATCH (a:Autor)
             WHERE NOT (a)-[:MEMBER_OF]->(:Instanz)
+            AND (a)<-[:AUTHORED_BY]-(:Toot)
             RETURN count(a) AS n
         """).single()["n"]
     test(
@@ -285,6 +288,58 @@ def run_tests(driver):
         print("            Erstelle Index mit:")
         print("            CREATE FULLTEXT INDEX toot_content IF NOT EXISTS")
         print("            FOR (t:Toot) ON EACH [t.content]")
+
+    # ── 9. BOOSTED_BY Beziehungen ─────────────────────────────────────────────
+    print("\n 9. BOOSTED_BY Beziehungen")
+
+    import os
+    if os.path.exists(BOOST_FILE):
+        # Anzahl Booster aus BoostData.jsonl zählen
+        boost_by_count_jsonl = 0
+        seen_pairs = set()
+        with open(BOOST_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                entry    = json.loads(line)
+                toot_uri = entry["toot_uri"]
+                for booster in entry.get("boosters", []):
+                    handle = booster.get("handle", "")
+                    if handle and (toot_uri, handle) not in seen_pairs:
+                        seen_pairs.add((toot_uri, handle))
+                        boost_by_count_jsonl += 1
+
+        with driver.session() as s:
+            boost_by_count_neo4j = s.run("""
+                MATCH ()-[r:BOOSTED_BY]->()
+                RETURN count(r) AS n
+            """).single()["n"]
+
+        test(
+            "Anzahl BOOSTED_BY-Kanten stimmt mit BoostData.jsonl überein",
+            boost_by_count_neo4j == boost_by_count_jsonl,
+            f"{boost_by_count_neo4j} Kanten in Neo4j, {boost_by_count_jsonl} in BoostData.jsonl"
+        )
+
+        with driver.session() as s:
+            duplicate_boosts = s.run("""
+                MATCH (t:Toot)-[r:BOOSTED_BY]->(a:Autor)
+                WITH t.uri AS uri, a.handle AS handle, count(r) AS n
+                WHERE n > 1
+                RETURN count(*) AS duplicates
+            """).single()["duplicates"]
+        test(
+            "Keine doppelten BOOSTED_BY-Kanten",
+            duplicate_boosts == 0,
+            f"{duplicate_boosts} Duplikate gefunden"
+        )
+    else:
+        test(
+            "BoostData.jsonl vorhanden",
+            False,
+            f"Datei nicht gefunden: {BOOST_FILE} — bitte fetch_boosts.py ausführen"
+        )
 
 
 # ── Hauptprogramm ─────────────────────────────────────────────────────────────

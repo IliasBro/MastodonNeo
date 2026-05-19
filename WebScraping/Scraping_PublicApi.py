@@ -12,13 +12,16 @@ import requests
 import json
 import time
 import os
+from urllib.parse import urlparse
 
 # ── Konfiguration ──────────────────────────────────────────────────────────────
-INSTANCES_FILE  = "Instances/Top40Instances.json"
+INSTANCES_FILE  = "Instances/InstancesNotValidated.json"
 OUTPUT_FILE     = "Data/ScrapedData_PublicApi.jsonl"
+BOOST_FILE      = "Data/BoostData_PublicApi.jsonl"
 ERROR_LOG       = "Data/fehler_scraping.txt"
-MAX_TOOTS       = 200      # Maximale Toots pro Instanz
-PAUSE_BETWEEN   = 3        # Sekunden Pause zwischen Instanzen
+MAX_TOOTS       = 200
+PAUSE_BETWEEN   = 3
+PAUSE_BOOST     = 0.3
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; MastodonResearchScraper/1.0; Bachelorarbeit ZHAW)"
@@ -82,16 +85,86 @@ def scrape_instance(instance: str, max_toots: int) -> list:
     return toots[:max_toots]
 
 
+# ── Boost-Daten via reblogged_by abrufen ──────────────────────────────────────
+def fetch_boost_data(toots: list) -> None:
+    """
+    Fragt für alle Toots mit reblogs_count > 0 den reblogged_by-Endpunkt ab
+    und speichert die Ergebnisse in Data/BoostData_PublicApi.jsonl.
+    Duplikate innerhalb des Datensatzes werden automatisch übersprungen.
+    """
+    candidates = [
+        t for t in toots
+        if t.get("reblogs_count", 0) > 0 and t.get("uri")
+    ]
+
+    seen_uris = set()
+    unique_candidates = []
+    for t in candidates:
+        uri = t.get("uri", "")
+        if uri not in seen_uris:
+            seen_uris.add(uri)
+            unique_candidates.append(t)
+
+    print(f"\nSuche Boost-Daten für {len(unique_candidates)} eindeutige Toots...")
+
+    found   = 0
+    skipped = 0
+
+    with open(BOOST_FILE, "w", encoding="utf-8") as out:
+        for toot in unique_candidates:
+            uri      = toot["uri"]
+            parts    = uri.rstrip("/").split("/")
+            toot_id  = parts[-1] if parts else ""
+            instance = urlparse(uri).netloc
+
+            if not instance or not toot_id:
+                skipped += 1
+                continue
+
+            url = f"https://{instance}/api/v1/statuses/{toot_id}/reblogged_by"
+            try:
+                r = requests.get(url, headers=HEADERS, timeout=8)
+                if r.status_code == 200:
+                    boosters = r.json()
+                    if boosters and isinstance(boosters, list):
+                        entry = {
+                            "toot_uri": uri,
+                            "toot_id":  toot.get("id"),
+                            "boosters": [
+                                {
+                                    "handle":       b.get("acct"),
+                                    "display_name": b.get("display_name"),
+                                    "url":          b.get("url"),
+                                }
+                                for b in boosters
+                            ]
+                        }
+                        out.write(json.dumps(entry, ensure_ascii=False) + "\n")
+                        found += 1
+                    else:
+                        skipped += 1
+                else:
+                    skipped += 1
+            except Exception:
+                skipped += 1
+
+            time.sleep(PAUSE_BOOST)
+
+    print(f"Boost-Daten: {found} Toots mit Boosts, {skipped} ohne.")
+    print(f"Gespeichert in: {BOOST_FILE}")
+
+
 # ── Hauptprogramm ──────────────────────────────────────────────────────────────
 def main():
     with open(INSTANCES_FILE, "r", encoding="utf-8") as f:
         instances = json.load(f)
     print(f"{len(instances)} Instanzen geladen")
 
-    os.makedirs("../Data", exist_ok=True)
+    os.makedirs("Data", exist_ok=True)
 
-    total = 0
-    errors = []
+    total      = 0
+    errors     = []
+    all_toots  = []
     mode = "a" if os.path.exists(OUTPUT_FILE) else "w"
 
     with open(OUTPUT_FILE, mode, encoding="utf-8") as f:
@@ -101,6 +174,7 @@ def main():
                 toots = scrape_instance(instance, MAX_TOOTS)
                 for toot in toots:
                     f.write(json.dumps(toot, ensure_ascii=False) + "\n")
+                all_toots.extend(toots)
                 total += len(toots)
                 print(f"{len(toots)} Toots (Total: {total})")
             except Exception as e:
@@ -116,6 +190,9 @@ def main():
         print(f"\n{len(errors)} Instanzen fehlgeschlagen — Details in {ERROR_LOG}")
 
     print(f"\nFertig! {total} Toots gespeichert in {OUTPUT_FILE}")
+
+    # Boost-Daten abrufen
+    fetch_boost_data(all_toots)
 
 
 if __name__ == "__main__":

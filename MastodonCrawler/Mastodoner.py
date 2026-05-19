@@ -3,6 +3,7 @@ Mastodon Datenerhebung
 - Instanzen werden aus Instances/InstancesValidated.json gelesen
 - Toots werden in Data/ScrapedData_Mastodoner.jsonl gespeichert
 - Referenzierte Toots (REPLY_TO-Ziele) werden nachgeladen
+- Boost-Daten (reblogged_by) werden in Data/BoostData.jsonl gespeichert
 Verwendung: python Mastodoner.py
 Voraussetzungen: pip install mastodoner requests
 """
@@ -17,10 +18,12 @@ from urllib.parse import urlparse
 # ── Konfiguration ──────────────────────────────────────────────────────────────
 INSTANCES_FILE         = "Instances/InstancesValidated.json"
 OUTPUT_FILE            = "Data/ScrapedData_Mastodoner.jsonl"
+BOOST_FILE             = "Data/BoostData.jsonl"
 ERROR_LOG              = "Data/error_Mastodoner_Log.txt"
 MAX_POSTS_PER_INSTANCE = 200
 PAUSE_BETWEEN          = 2
-PAUSE_REPLY_FETCH      = 0.5    # Kürzere Pause beim Nachladen einzelner Toots
+PAUSE_REPLY_FETCH      = 0.5
+PAUSE_BOOST_FETCH      = 0.3
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; MastodonResearchScraper/1.0; Bachelorarbeit ZHAW)"
@@ -91,6 +94,76 @@ def fetch_missing_replies(toots: list) -> list:
     print(f"Nachgeladen: {fetched} Toots, nicht gefunden: {failed}")
     return extra_toots
 
+# ── Hilfsfunktion: Boost-Daten via reblogged_by abrufen ───────────────────────
+def fetch_boost_data(toots: list) -> None:
+    """
+    Fragt für alle Toots mit reblogs_count > 0 den reblogged_by-Endpunkt ab
+    und speichert die Ergebnisse in Data/BoostData.jsonl.
+    Duplikate innerhalb des Datensatzes werden automatisch übersprungen.
+    """
+    candidates = [
+        t for t in toots
+        if t.get("reblogs_count", 0) > 0 and t.get("uri")
+    ]
+
+    # Duplikate (gleiche URI mehrfach durch Föderierung) entfernen
+    seen_uris = set()
+    unique_candidates = []
+    for t in candidates:
+        uri = t.get("uri", "")
+        if uri not in seen_uris:
+            seen_uris.add(uri)
+            unique_candidates.append(t)
+
+    print(f"\nSuche Boost-Daten für {len(unique_candidates)} eindeutige Toots...")
+
+    found   = 0
+    skipped = 0
+
+    with open(BOOST_FILE, "w", encoding="utf-8") as out:
+        for toot in unique_candidates:
+            uri      = toot["uri"]
+            parts    = uri.rstrip("/").split("/")
+            toot_id  = parts[-1] if parts else ""
+            instance = urlparse(uri).netloc
+
+            if not instance or not toot_id:
+                skipped += 1
+                continue
+
+            url = f"https://{instance}/api/v1/statuses/{toot_id}/reblogged_by"
+            try:
+                r = requests.get(url, headers=HEADERS, timeout=8)
+                if r.status_code == 200:
+                    boosters = r.json()
+                    if boosters and isinstance(boosters, list):
+                        entry = {
+                            "toot_uri": uri,
+                            "toot_id":  toot.get("id"),
+                            "boosters": [
+                                {
+                                    "handle":       b.get("acct"),
+                                    "display_name": b.get("display_name"),
+                                    "url":          b.get("url"),
+                                }
+                                for b in boosters
+                            ]
+                        }
+                        out.write(json.dumps(entry, ensure_ascii=False) + "\n")
+                        found += 1
+                    else:
+                        skipped += 1
+                else:
+                    skipped += 1
+            except Exception:
+                skipped += 1
+
+            time.sleep(PAUSE_BOOST_FETCH)
+
+    print(f"Boost-Daten: {found} Toots mit Boosts, {skipped} ohne.")
+    print(f"Gespeichert in: {BOOST_FILE}")
+
+
 # ── Hauptprogramm ──────────────────────────────────────────────────────────────
 def main():
     # Instanzen aus JSON-Datei lesen
@@ -134,6 +207,9 @@ def main():
     with open(OUTPUT_FILE, mode, encoding='utf-8') as f:
         for toot in all_toots:
             f.write(json.dumps(toot, ensure_ascii=False) + '\n')
+
+    # ── Schritt 4: Boost-Daten abrufen ────────────────────────────────────────
+    fetch_boost_data(all_toots)
 
     # Fehlerlog schreiben
     if errors:
