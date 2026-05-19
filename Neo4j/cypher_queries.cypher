@@ -213,7 +213,52 @@ ORDER BY anzahl DESC
 LIMIT 10
 
 # ===========================================================================
-# 8. VOLLSTÄNDIGE USE-CASE PIPELINE
+# 8. BOOSTED_BY-ANALYSE — Reichweite von Toots messen
+# ===========================================================================
+
+# 8.1 Meistgebooste Toots (direkte Reichweite)
+MATCH (t:Toot)-[:BOOSTED_BY]->(a:Autor)
+RETURN t.uri AS toot, count(a) AS anzahl_boosts
+ORDER BY anzahl_boosts DESC
+LIMIT 10
+
+# 8.2 Aktivste Booster (wer verbreitet am meisten?)
+MATCH (t:Toot)-[:BOOSTED_BY]->(a:Autor)
+RETURN a.handle AS autor, count(t) AS anzahl_boosts
+ORDER BY anzahl_boosts DESC
+LIMIT 10
+
+# 8.3 Instanzverteilung der geboosteten Toots
+MATCH (t:Toot)-[:BOOSTED_BY]->(a:Autor)
+MATCH (t)-[:POSTED_ON]->(i:Instanz)
+RETURN i.domain AS instanz, count(*) AS anzahl_boosts
+ORDER BY anzahl_boosts DESC
+LIMIT 10
+
+# 8.4 Kombination: Toots die sowohl Antworten als auch Boosts erhalten haben
+MATCH (t:Toot)
+WHERE t.uri IS NOT NULL
+OPTIONAL MATCH (t)<-[:REPLY_TO]-(reply:Toot)
+OPTIONAL MATCH (t)-[:BOOSTED_BY]->(booster:Autor)
+WITH t, count(DISTINCT reply) AS antworten, count(DISTINCT booster) AS boosts
+WHERE antworten > 0 AND boosts > 0
+RETURN t.uri AS toot, antworten, boosts, antworten + boosts AS total_interaktion
+ORDER BY total_interaktion DESC
+LIMIT 10
+
+# 8.5 Spreading: Wie weit verbreiten sich geboostete Toots über Instanzen?
+MATCH (t:Toot)-[:BOOSTED_BY]->(a:Autor)
+MATCH (t)-[:POSTED_ON]->(i_original:Instanz)
+MATCH (a)-[:MEMBER_OF]->(i_booster:Instanz)
+WHERE i_original <> i_booster
+RETURN i_original.domain AS original_instanz,
+       i_booster.domain AS booster_instanz,
+       count(*) AS anzahl
+ORDER BY anzahl DESC
+LIMIT 10
+
+# ===========================================================================
+# 9. VOLLSTÄNDIGE USE-CASE PIPELINE
 # «Ich möchte mehr über AI erfahren»
 # ===========================================================================
 
@@ -245,3 +290,10 @@ MATCH (t:Toot)-[:HAS_HASHTAG]->(h:Hashtag {name: 'ai'})
 MATCH (t)-[:POSTED_ON]->(i:Instanz)
 RETURN i.domain, count(t) AS anzahl
 ORDER BY anzahl DESC
+
+# Schritt 6: Wer hat die meistdiskutierten AI-Toots geboosted?
+MATCH (t:Toot)-[:HAS_HASHTAG]->(h:Hashtag {name: 'ai'})
+MATCH (t)-[:BOOSTED_BY]->(a:Autor)
+RETURN t.uri AS toot, collect(a.handle) AS booster, count(a) AS anzahl_boosts
+ORDER BY anzahl_boosts DESC
+LIMIT 5
