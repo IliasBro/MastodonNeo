@@ -20,6 +20,7 @@ Das Vorgehen folgt der Design Science Research Methodology (DSRM) nach Peffers e
 - Python 3.11
 - Neo4j Desktop (Download: https://neo4j.com/download/)
 - Git
+- instances.social API-Token (optional, nur fuer Schritt 1a)
 
 ---
 
@@ -48,6 +49,7 @@ Erstelle eine `.env`-Datei im Root-Verzeichnis:
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=dein_passwort
+INSTANCES_SOCIAL_TOKEN=dein_token  # optional, nur fuer Schritt 1a
 ```
 
 ### 4. Neo4j Desktop starten
@@ -59,15 +61,23 @@ Installiere unter Plugins die Graph Data Science Library.
 
 ## Verwendung
 
-Die Pipeline wird in folgender Reihenfolge ausgefuhrt:
+### Schritt 1a: Instanzen abrufen (optional)
 
-### Schritt 1: Instanzen validieren
+Wenn keine eigene Kandidatenliste vorhanden ist, kann `fetch_instances.py` automatisch wissenschaftliche Mastodon-Instanzen von instances.social abrufen. Dafuer wird ein API-Token benoetigt, der unter https://instances.social/api/token generiert werden kann. Die gewuenschten Suchbegriffe koennen im Script unter `KEYWORDS` angepasst werden.
+
+```bash
+python Instances/fetch_instances.py
+```
+
+Schreibt `Instances/InstancesNotValidated.json` mit bis zu 60 Instanzen.
+
+### Schritt 1b: Instanzen validieren
 
 ```bash
 python Instances/validate_instances.py
 ```
 
-Liest `Instances/Top60Instances.json` und schreibt `Instances/InstancesValidated.json`.
+Liest `Instances/InstancesNotValidated.json` und schreibt `Instances/InstancesValidated.json`.
 
 ### Schritt 2: Toots sammeln
 
@@ -75,7 +85,7 @@ Liest `Instances/Top60Instances.json` und schreibt `Instances/InstancesValidated
 python MastodonCrawler/Mastodoner.py
 ```
 
-Schreibt `Data/ScrapedData_Mastodoner.jsonl`.
+Schreibt `Data/ScrapedData_Mastodoner.jsonl` und `Data/BoostData.jsonl`.
 
 ### Schritt 3: In Neo4j importieren
 
@@ -85,19 +95,19 @@ python Neo4j/ImportToNeo4j.py
 
 ### Schritt 4: Volltext-Index erstellen
 
-Im Neo4j Browser ausfuhren:
+Im Neo4j Browser ausfuehren:
 
 ```cypher
 CREATE FULLTEXT INDEX toot_content IF NOT EXISTS FOR (t:Toot) ON EACH [t.content]
 ```
 
-### Schritt 5: Hashtag-Recommender ausfuhren
+### Schritt 5: Hashtag-Recommender ausfuehren
 
 ```bash
 python Recommender/hashtag_recommender.py
 ```
 
-### Schritt 6: Testframework ausfuhren
+### Schritt 6: Testframework ausfuehren
 
 ```bash
 python Neo4j/test_framework.py
@@ -109,23 +119,27 @@ python Neo4j/test_framework.py
 
 ```
 MastodonNeo/
-├── Data/                        # Gesammelte Toots (nicht versioniert)
+├── Data/                          # Gesammelte Toots (nicht versioniert)
+│   ├── ScrapedData_Mastodoner.jsonl
+│   ├── ScrapedData_PublicApi.jsonl
+│   └── BoostData.jsonl
 ├── Instances/
-│   ├── Top60Instances.json      # Kandidatenliste
-│   ├── InstancesValidated.json  # Validierte Instanzen
-│   └── validate_instances.py   # Validierungsskript
+│   ├── InstancesNotValidated.json # Kandidatenliste
+│   ├── InstancesValidated.json    # Validierte Instanzen
+│   ├── fetch_instances.py         # Automatischer Instanzabruf (optional)
+│   └── validate_instances.py      # Validierungsskript
 ├── MastodonCrawler/
-│   └── Mastodoner.py            # Hauptcrawler
+│   └── Mastodoner.py              # Hauptcrawler inkl. Boost-Abruf
 ├── Neo4j/
-│   ├── ImportToNeo4j.py         # Import-Skript
-│   ├── test_framework.py        # Testframework
-│   └── cypher_queries.cypher    # Abfragesammlung
+│   ├── ImportToNeo4j.py           # Import-Skript
+│   ├── test_framework.py          # Testframework (19 Tests)
+│   └── cypher_queries.cypher      # Abfragesammlung
 ├── Recommender/
-│   └── hashtag_recommender.py  # Hashtag-Empfehlungen
+│   └── hashtag_recommender.py     # Hashtag-Empfehlungen
 ├── WebScraping/
-│   ├── Scraping_PublicApi.py    # Unauthentifizierter Endpunkt
-│   └── Scraping_BeautifulSoup.py # HTML-Scraping-Diagnose
-├── .env                         # Neo4j-Zugangsdaten (nicht versioniert)
+│   ├── Scraping_PublicApi.py      # Unauthentifizierter Endpunkt
+│   └── Scraping_BeautifulSoup.py  # HTML-Scraping-Diagnose
+├── .env                           # Neo4j-Zugangsdaten (nicht versioniert)
 ├── README.md
 └── requirements.txt
 ```
