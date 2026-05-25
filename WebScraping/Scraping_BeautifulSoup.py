@@ -82,7 +82,7 @@ def diagnose_response(instance: str, response) -> dict:
 # ── Hauptprogramm ──────────────────────────────────────────────────────────────
 def main():
     print("=" * 65)
-    print("  BeautifulSoup Scraper — Diagnose-Modus")
+    print("  BeautifulSoup Scraper")
     print("  Testet ob HTML-Scraping auf Mastodon-Instanzen funktioniert")
     print("=" * 65)
 
@@ -110,7 +110,7 @@ def main():
                 print(f"  Toots im HTML:     {diagnosis['toots_gefunden_article']}")
                 print(f"  HTML-Länge:        {diagnosis['html_laenge_zeichen']} Zeichen")
                 print(f"  Script-Tags:       {diagnosis['anzahl_script_tags']}")
-                print(f"\n  ⚠️  FAZIT: {diagnosis['fazit']}")
+                print(f"\nFAZIT: {diagnosis['fazit']}")
 
             else:
                 print(f"  HTTP-Fehler: {response.status_code}")
@@ -160,19 +160,14 @@ Anstelle von HTML-Scraping wird der öffentliche API-Endpunkt
 direkt abgefragt (/api/v1/timelines/public), der dieselben Daten
 ohne Authentifizierung als JSON zurückgibt. Dies entspricht
 funktional dem Web Scraping, da kein API-Schlüssel benötigt wird.
-Implementiert in: WebScraping/ScrapeToots.py
+Implementiert in: WebScraping/Scraping_PublicApi.py
 
-WEITERE ALTERNATIVEN (nicht implementiert):
-- Selenium/Playwright: Steuert einen echten Browser der JavaScript
-  ausführen kann. Deutlich langsamer und ressourcenintensiver.
-- Scrapy mit Splash: Headless-Browser für JavaScript-Rendering.
-  Erfordert zusätzliche Infrastruktur.
 """)
 
     # Ergebnisse als JSON speichern
     with open("Data/ScrapedData_BeautifulSoup.json", "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
-    print("  Diagnose gespeichert: Data/ScrapedData_BeautifulSoup.json")
+    print("  Ergebnis gespeichert: Data/ScrapedData_BeautifulSoup.json")
 
 
 if __name__ == "__main__":
