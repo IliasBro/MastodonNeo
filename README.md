@@ -69,7 +69,7 @@ Wenn keine eigene Kandidatenliste vorhanden ist, kann `fetch_instances.py` autom
 python Instances/fetch_instances.py
 ```
 
-Schreibt `Instances/InstancesNotValidated.json` mit bis zu 60 Instanzen.
+Schreibt `Data/InstancesNotValidated.json` mit bis zu 60 Instanzen.
 
 ### Schritt 1b: Instanzen validieren
 
@@ -77,7 +77,7 @@ Schreibt `Instances/InstancesNotValidated.json` mit bis zu 60 Instanzen.
 python Instances/validate_instances.py
 ```
 
-Liest `Instances/InstancesNotValidated.json` und schreibt `Instances/InstancesValidated.json`.
+Liest `Data/InstancesNotValidated.json` und schreibt `Data/InstancesValidated.json`.
 
 ### Schritt 2: Toots sammeln
 
@@ -120,12 +120,13 @@ python Neo4j/test_framework.py
 ```
 MastodonNeo/
 ├── Data/                          # Gesammelte Toots (nicht versioniert)
-│   ├── ScrapedData_Mastodoner.jsonl
-│   ├── ScrapedData_PublicApi.jsonl
-│   └── BoostData.jsonl
-├── Instances/
+│   ├── BoostData.jsonl            
 │   ├── InstancesNotValidated.json # Kandidatenliste
-│   ├── InstancesValidated.json    # Validierte Instanzen
+│   ├── InstancesValidated.json    # Validierte Instanzen              
+│   ├── ScrapedData_BeautifulSoup.jsonl
+│   ├── ScrapedData_Mastodoner.jsonl
+│   └── ScrapedData_PublicApi.jsonl
+├── Instances/
 │   ├── fetch_instances.py         # Automatischer Instanzabruf (optional)
 │   └── validate_instances.py      # Validierungsskript
 ├── MastodonCrawler/

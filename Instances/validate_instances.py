@@ -30,8 +30,8 @@ import time
 import requests
 
 # ── Konfiguration ──────────────────────────────────────────────────────────────
-CANDIDATES_FILE = "Instances/InstancesNotValidated.json"
-OUTPUT_FILE     = "Instances/InstancesValidated.json"
+CANDIDATES_FILE = "Data/InstancesNotValidated.json"
+OUTPUT_FILE     = "Data/InstancesValidated.json"
 TIMEOUT         = 10
 PAUSE_BETWEEN   = 0.5
 

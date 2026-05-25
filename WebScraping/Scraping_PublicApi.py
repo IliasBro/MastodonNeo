@@ -15,7 +15,7 @@ import os
 from urllib.parse import urlparse
 
 # ── Konfiguration ──────────────────────────────────────────────────────────────
-INSTANCES_FILE  = "Instances/InstancesValidated.json"
+INSTANCES_FILE  = "Data/InstancesValidated.json"
 OUTPUT_FILE     = "Data/ScrapedData_PublicApi.jsonl"
 BOOST_FILE      = "Data/BoostData_PublicApi.jsonl"
 ERROR_LOG       = "Data/fehler_scraping.txt"

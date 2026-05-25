@@ -23,7 +23,7 @@ load_dotenv()
 
 # ── Konfiguration ──────────────────────────────────────────────────────────────
 TOKEN       = os.getenv("INSTANCES_SOCIAL_TOKEN", "")
-OUTPUT_FILE = "Instances/InstancesNotValidated.json"
+OUTPUT_FILE = "Data/InstancesNotValidated.json"
 MAX_RESULTS = 60
 API_COUNT   = 500
 

@@ -1,6 +1,6 @@
 """
 Mastodon Datenerhebung
-- Instanzen werden aus Instances/InstancesValidated.json gelesen
+- Instanzen werden aus Data/InstancesValidated.json gelesen
 - Toots werden in Data/ScrapedData_Mastodoner.jsonl gespeichert
 - Referenzierte Toots (REPLY_TO-Ziele) werden nachgeladen
 - Boost-Daten (reblogged_by) werden in Data/BoostData.jsonl gespeichert
@@ -16,7 +16,7 @@ import requests
 from urllib.parse import urlparse
 
 # ── Konfiguration ──────────────────────────────────────────────────────────────
-INSTANCES_FILE         = "Instances/InstancesValidated.json"
+INSTANCES_FILE         = "Data/InstancesValidated.json"
 OUTPUT_FILE            = "Data/ScrapedData_Mastodoner.jsonl"
 BOOST_FILE             = "Data/BoostData.jsonl"
 ERROR_LOG              = "Data/error_Mastodoner_Log.txt"

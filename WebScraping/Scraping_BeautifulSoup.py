@@ -16,7 +16,7 @@ import json
 import time
 
 # ── Konfiguration ──────────────────────────────────────────────────────────────
-INSTANCES_FILE = "Instances/InstancesValidated.json"
+INSTANCES_FILE = "Data/InstancesValidated.json"
 TEST_INSTANCES = 5        # Nur die ersten 5 Instanzen testen (Demo)
 PAUSE_BETWEEN  = 2
 
