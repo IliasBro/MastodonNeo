@@ -159,12 +159,11 @@ def main():
         session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (a:Autor) REQUIRE a.handle IS UNIQUE")
         session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (i:Instanz) REQUIRE i.domain IS UNIQUE")
         session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (h:Hashtag) REQUIRE h.name IS UNIQUE")
-
-    # Volltext-Index automatisch erstellen
-    session.run("""
-    CREATE FULLTEXT INDEX toot_content IF NOT EXISTS
-    FOR (t:Toot) ON EACH [t.content]
-    """)
+        # Volltext-Index automatisch erstellen
+        session.run("""
+        CREATE FULLTEXT INDEX toot_content IF NOT EXISTS
+        FOR (t:Toot) ON EACH [t.content]
+        """)
 
     # Toots importieren
     count = 0
