@@ -34,13 +34,27 @@ def test(name: str, result: bool, detail: str = ""):
     else:
         FAILED += 1
 
-def count_jsonl(filepath: str) -> int:
-    count = 0
+def count_unique_jsonl(filepath: str) -> tuple:
+    """
+    Liest die JSONL-Datei und gibt eindeutige Zählungen zurück.
+    Dedupliziert Toots nach ID, da derselbe Toot von mehreren
+    Instanzen gecrawlt werden kann.
+    Gibt (eindeutige_toots, hashtags, reply_to) zurück.
+    """
+    seen_ids  = set()
+    tags      = 0
+    replies   = 0
     with open(filepath, "r", encoding="utf-8") as f:
         for line in f:
-            if line.strip():
-                count += 1
-    return count
+            if not line.strip():
+                continue
+            toot    = json.loads(line)
+            toot_id = toot.get("id")
+            if toot_id and toot_id not in seen_ids:
+                seen_ids.add(toot_id)
+                tags    += len(toot.get("tags", []))
+                replies += 1 if toot.get("in_reply_to_id") else 0
+    return len(seen_ids), tags, replies
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 def run_tests(driver):
@@ -48,7 +62,7 @@ def run_tests(driver):
     # ── 1. Import-Vollständigkeit ─────────────────────────────────────────────
     print("\n 1. Import-Vollständigkeit")
 
-    jsonl_count = count_jsonl(INPUT_FILE)
+    jsonl_count, total_tags_jsonl, reply_count_jsonl = count_unique_jsonl(INPUT_FILE)
 
     with driver.session() as s:
         toot_count = s.run("MATCH (t:Toot) RETURN count(t) AS n").single()["n"]
@@ -127,15 +141,6 @@ def run_tests(driver):
     # ── 3. Hashtag-Vollständigkeit ────────────────────────────────────────────
     print("\n#️  3. Hashtag-Vollständigkeit")
 
-    total_tags_jsonl = 0
-    with open(INPUT_FILE, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            toot = json.loads(line)
-            total_tags_jsonl += len(toot.get("tags", []))
-
     with driver.session() as s:
         has_hashtag_count = s.run("""
             MATCH ()-[r:HAS_HASHTAG]->()
@@ -149,16 +154,6 @@ def run_tests(driver):
 
     # ── 4. REPLY_TO Beziehungen ───────────────────────────────────────────────
     print("\n  4. REPLY_TO Beziehungen")
-
-    reply_count_jsonl = 0
-    with open(INPUT_FILE, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            toot = json.loads(line)
-            if toot.get("in_reply_to_id"):
-                reply_count_jsonl += 1
 
     with driver.session() as s:
         reply_count_neo4j = s.run("""
