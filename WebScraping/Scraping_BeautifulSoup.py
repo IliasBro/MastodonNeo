@@ -1,10 +1,10 @@
 """
-Mastodon Web Scraper — Versuch mit BeautifulSoup (HTML-Parsing)
+Mastodon Web Scraper: Versuch mit BeautifulSoup (HTML-Parsing)
 ================================================================
 Dieser Scraper versucht, Mastodon-Toots via klassischem HTML-Scraping
 mit BeautifulSoup zu erfassen.
 
-ERGEBNIS: Funktioniert NICHT — Begründung siehe Ausgabe und Kommentare.
+ERGEBNIS: Funktioniert NICHT: Begründung siehe Ausgabe und Kommentare.
 
 Verwendung: python scrape_beautifulsoup.py
 Voraussetzungen: pip install requests beautifulsoup4
@@ -74,7 +74,7 @@ def diagnose_response(instance: str, response) -> dict:
             "die Struktur weicht von der erwarteten Mastodon-Struktur ab."
         )
     else:
-        diagnosis["fazit"] = "Toots gefunden — aber dies ist ungewöhnlich für moderne Mastodon-Instanzen."
+        diagnosis["fazit"] = "Toots gefunden. Dies ist ungewöhnlich für moderne Mastodon-Instanzen."
 
     return diagnosis
 
@@ -117,14 +117,14 @@ def main():
                 results.append({
                     "instance": instance,
                     "http_status": response.status_code,
-                    "fazit": f"HTTP {response.status_code} — Seite nicht erreichbar oder Zugriff verweigert"
+                    "fazit": f"HTTP {response.status_code} , Seite nicht erreichbar oder Zugriff verweigert"
                 })
 
         except requests.exceptions.ConnectionError:
-            print(f"  Verbindungsfehler — Instanz nicht erreichbar")
+            print(f"  Verbindungsfehler, Instanz nicht erreichbar")
             results.append({"instance": instance, "fazit": "Verbindungsfehler"})
         except requests.exceptions.Timeout:
-            print(f"  Timeout — Instanz antwortet nicht")
+            print(f"  Timeout, Instanz antwortet nicht")
             results.append({"instance": instance, "fazit": "Timeout"})
 
         time.sleep(PAUSE_BETWEEN)
@@ -152,7 +152,7 @@ führt der Browser das JavaScript (app.js) aus, welches dann die
 Mastodon REST-API aufruft (/api/v1/timelines/public) und die Toots
 dynamisch in den DOM einfügt.
 
-BeautifulSoup liest nur das initiale HTML — es kann JavaScript
+BeautifulSoup liest nur das initiale HTML. Es kann JavaScript
 nicht ausführen. Daher findet BeautifulSoup keine Toots.
 
 ALTERNATIVE LÖSUNG:

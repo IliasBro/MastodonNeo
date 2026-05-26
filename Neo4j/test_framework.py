@@ -358,7 +358,7 @@ def main():
     if FAILED == 0:
         print("Alle Tests bestanden!")
     else:
-        print("Einige Tests fehlgeschlagen — bitte prüfen.")
+        print("Einige Tests fehlgeschlagen, bitte prüfen.")
     print("=" * 55)
 
 

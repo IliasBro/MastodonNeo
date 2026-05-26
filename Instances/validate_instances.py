@@ -1,5 +1,5 @@
 """
-Instanz-Validator — MastodonNeo
+Instanz-Validator
 ================================
 Validiert eine Liste von Mastodon-Instanzen technisch und erstellt
 eine bereinigte JSON-Datei mit nur erreichbaren Instanzen.
@@ -160,7 +160,7 @@ def main():
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(valid, f, ensure_ascii=False)
 
-    print(f"\n✓  Gespeichert: {OUTPUT_FILE} ({len(valid)} Instanzen)")
+    print(f"\n  Gespeichert: {OUTPUT_FILE} ({len(valid)} Instanzen)")
 
 
 if __name__ == "__main__":

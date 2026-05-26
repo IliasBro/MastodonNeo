@@ -1,5 +1,5 @@
 """
-Instanz-Abruf — MastodonNeo
+Instanz-Abruf
 ==============================
 Ruft wissenschaftliche Mastodon-Instanzen von instances.social ab
 und speichert die geeignetsten als InstancesNotValidated.json.
