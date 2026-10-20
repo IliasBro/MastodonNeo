@@ -1,19 +1,71 @@
 # MastodonNeo
 
-Bachelorarbeit — ZHAW School of Management and Law
+Bachelorarbeit, ZHAW School of Management and Law
 BSc Wirtschaftsinformatik, Vertiefung Data Science, 2026
 
-Automatisierte Erfassung und Analyse wissenschaftlicher Mastodon-Kommunikation mit Neo4j.
+**Automatisierte Erfassung und Analyse wissenschaftlicher Mastodon-Kommunikation mit Neo4j**
+
+> **English summary:** A Python data pipeline that discovers and validates science-related Mastodon instances, crawls public posts (toots) across 43 instances, and loads them into a Neo4j graph database. The graph enables cross-instance analyses that Mastodon's built-in search cannot provide, such as hashtag co-occurrence, reply networks and boost propagation. Includes a graph-based hashtag recommender and a test suite with 19 checks for data integrity.
 
 ---
 
-## Beschreibung
+## Worum es geht
 
-Dieses Repository enthält ein Informationssystem, das Toots von mehreren Mastodon-Instanzen automatisiert erfasst und in einer Neo4j-Graphdatenbank speichert. Das System ermöglicht instanzübergreifende Analysen, die mit der eingebauten Mastodon-Suche nicht möglich sind.
+Wissenschaftliche Kommunikation auf Mastodon ist über viele unabhängige Server (Instanzen) verteilt. Die eingebaute Suche sieht immer nur einen Ausschnitt. Dieses Projekt sammelt Toots von mehreren wissenschaftlichen Instanzen automatisiert ein und führt sie in einer Graphdatenbank zusammen. Damit werden Fragen beantwortbar wie: Welche Hashtags treten gemeinsam auf? Wer antwortet wem über Instanzgrenzen hinweg? Wie verbreiten sich Beiträge über Boosts?
 
 Das Vorgehen folgt der Design Science Research Methodology (DSRM) nach Peffers et al. (2007).
 
----
+## Pipeline
+
+```mermaid
+flowchart LR
+    A[instances.social API] --> B[Instanzen validieren<br/>Nodeinfo, Aktivität,<br/>öffentliche Timeline]
+    B --> C[Crawler<br/>Mastodon REST-API]
+    C --> D[(JSONL<br/>Rohdaten)]
+    D --> E[Import<br/>Python + Cypher]
+    E --> F[(Neo4j)]
+    F --> G[Cypher-Analysen]
+    F --> H[Hashtag-Recommender]
+    F --> I[Testframework<br/>19 Tests]
+```
+
+1. **Instanzen finden und validieren:** Kandidaten von instances.social, technische Prüfung über Nodeinfo, Aktivitätsdaten und Erreichbarkeit der öffentlichen Timeline.
+2. **Crawlen:** Toots pro Instanz über die Mastodon-API, inkl. Nachladen fehlender Reply-Ziele und Abruf der Boost-Daten. Mit Pausen zwischen den Anfragen und eigenem User-Agent.
+3. **Zwischenspeichern:** Rohdaten als JSONL, damit Crawling und Import unabhängig voneinander laufen.
+4. **Importieren:** Idempotenter Import mit `MERGE`, Unique Constraints und Volltextindex.
+5. **Analysieren:** Cypher-Abfragen, Hashtag-Empfehlungen (Jaccard-Ähnlichkeit und gemeinsame Autoren), Validierung durch ein Testframework.
+
+## Graphmodell
+
+```mermaid
+graph LR
+    T((Toot)) -- AUTHORED_BY --> A((Autor))
+    T -- POSTED_ON --> I((Instanz))
+    A -- MEMBER_OF --> I
+    T -- HAS_HASHTAG --> H((Hashtag))
+    T -- REPLY_TO --> T
+    T -- BOOSTED --> T
+    T -- BOOSTED_BY --> A
+    H -- RECOMMENDED --> H
+```
+
+## Datensatz
+
+| Kennzahl | Wert |
+|---|---:|
+| Validierte und gecrawlte Instanzen | 43 |
+| Toots (mit URI) | 8'992 |
+| Eindeutige Autoren | 3'119 |
+| Instanz-Knoten im Graphen | 463 |
+| Eindeutige Hashtags | 3'098 |
+| HAS_HASHTAG-Kanten | 16'771 |
+| BOOSTED_BY-Kanten | 2'158 |
+| REPLY_TO-Kanten | 910 |
+| Platzhalter-Knoten (nicht auflösbare Reply-Referenzen) | 172 |
+
+Gecrawlt wurde von 43 Instanzen. Im Graphen entstehen trotzdem 463 Instanz-Knoten, weil Autoren und Boosts aus dem gesamten föderierten Netzwerk stammen.
+
+Die Rohdaten sind nicht Teil des Repositorys. Sie enthalten Beiträge und Benutzernamen Dritter und können mit den Skripten selbst erhoben werden.
 
 ## Voraussetzungen
 
